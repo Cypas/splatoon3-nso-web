@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         浏览器打开nso鱿鱼圈(请配合小鱿鱿bot使用)
 // @namespace    https://github.com/Cypas/splatoon3-nso-web
-// @version      1.0
+// @version      1.1
 // @description  当你在网络不好登不上nso App，或者更新不了nso最新版本时，本脚本可以派上用场
 // @author       Cypas; gtoken注入方法参考了eli fessler (frozenpandaman)
 // @match        *://*/*
@@ -24,6 +24,7 @@
 
     const TARGET_URL_REG = /^https:\/\/api\.lp1\.av5ja\.srv\.nintendo\.net\/(\?lang=.*)?$/;
     const GTOKEN_API_URL = 'https://xyy.ayano.top/api/nso/nso_web/login';
+    const SQUID_PAGE_URL = 'https://api.lp1.av5ja.srv.nintendo.net/?lang=ZH-CN'; // 鱿鱼圈固定地址
     const pageWindow = unsafeWindow;
 
     let menu_openSquid_ID = null;
@@ -53,7 +54,19 @@
         return isExpired;
     }
 
+    function openSquidPage() {
+        const squidTab = pageWindow.open(SQUID_PAGE_URL, '_blank');
+        squidTab?.addEventListener('load', () => initSquidPage());
+        return squidTab;
+    }
+
     async function getGtokenByAccessKey(isExpiredPrompt = false) {
+        // 核心修改点1：先判断是否在目标域名下，不在则自动打开鱿鱼圈页面
+        if (!TARGET_URL_REG.test(pageWindow.location.href)) {
+            log('【操作提示】', '当前不在鱿鱼圈页面，将自动打开鱿鱼圈新标签页');
+            openSquidPage();
+        }
+
         const promptMsg = isExpiredPrompt
             ? 'GToken已过期，请重新输入你的访问密钥'
             : '请输入你从小鱿鱿那获取的nso访问密钥';
@@ -270,7 +283,6 @@
             modal.remove();
         });
 
-
         btnContainer.appendChild(copyBtn);
         btnContainer.appendChild(closeBtn);
         modalContent.appendChild(modalTitle);
@@ -287,32 +299,32 @@
         document.body.appendChild(modal);
     }
 
-function showExpirationDate() {
-    const expDate = GM_getValue('nso_splatoon_expdate', '本地未获取GToken');
-    const expTs = GM_getValue('nso_splatoon_expts', '本地未获取GToken');
-    const gtoken = GM_getValue('nso_splatoon_gtoken', ''); 
+    function showExpirationDate() {
+        const expDate = GM_getValue('nso_splatoon_expdate', '本地未获取GToken');
+        const expTs = GM_getValue('nso_splatoon_expts', '本地未获取GToken');
+        const gtoken = GM_getValue('nso_splatoon_gtoken', '');
 
-    let expireStatus = '未知';
-    if (expTs) {
-        const isExpired = isGtokenExpired();
-        expireStatus = isExpired ? '已过期' : '未过期';
-    }
+        let expireStatus = '未知';
+        if (expTs) {
+            const isExpired = isGtokenExpired();
+            expireStatus = isExpired ? '已过期' : '未过期';
+        }
 
-    const gtokenDisplay = gtoken
-        ? gtoken.length > 50
-            ? gtoken.substring(0, 50) + '...'
-            : gtoken
-        : '本地未获取GToken';
+        const gtokenDisplay = gtoken
+            ? gtoken.length > 50
+                ? gtoken.substring(0, 50) + '...'
+                : gtoken
+            : '本地未获取GToken';
 
-    const showText = `GToken密钥信息：
+        const showText = `GToken密钥信息：
 • 有效期：${expDate}
 • 有效期时间戳：${expTs}
 • 当前状态：${expireStatus}
 • GToken（前50字符）：${gtokenDisplay}`;
 
-    log('【GToken密钥信息】', showText);
-    showCustomModal('GToken密钥信息', showText, gtoken);
-}
+        log('【GToken密钥信息】', showText);
+        showCustomModal('GToken密钥信息', showText, gtoken);
+    }
 
     function log(title, text) {
         if (!notificationContainer) {
@@ -393,8 +405,7 @@ function showExpirationDate() {
         }
 
         menu_openSquid_ID = GM_registerMenuCommand(`🦑 打开nso鱿鱼圈(ZH-CN)`, () => {
-            const squidTab = pageWindow.open('https://api.lp1.av5ja.srv.nintendo.net/?lang=ZH-CN', '_blank');
-            squidTab?.addEventListener('load', () => initSquidPage());
+            openSquidPage(); // 复用通用方法
         });
 
         menu_showExpDate_ID = GM_registerMenuCommand(`⌛ 查询当前GToken有效期`, showExpirationDate);
