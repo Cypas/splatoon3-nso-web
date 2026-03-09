@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         浏览器打开nso鱿鱼圈(请配合小鱿鱿bot使用)
 // @namespace    https://github.com/Cypas/splatoon3-nso-web
-// @version      1.1
+// @version      1.2
 // @description  当你在网络不好登不上nso App，或者更新不了nso最新版本时，本脚本可以派上用场
 // @author       Cypas; gtoken注入方法参考了eli fessler (frozenpandaman)
 // @match        *://*/*
@@ -22,7 +22,7 @@
 (function () {
     'use strict';
 
-    const TARGET_URL_REG = /^https:\/\/api\.lp1\.av5ja\.srv\.nintendo\.net\/(\?lang=.*)?$/;
+    const TARGET_URL_REG = /^https:\/\/api\.lp1\.av5ja\.srv\.nintendo\.net\/.*/;
     const GTOKEN_API_URL = 'https://xyy.ayano.top/api/nso/nso_web/login';
     const SQUID_PAGE_URL = 'https://api.lp1.av5ja.srv.nintendo.net/?lang=ZH-CN'; // 鱿鱼圈固定地址
     const pageWindow = unsafeWindow;
@@ -56,15 +56,18 @@
 
     function openSquidPage() {
         const squidTab = pageWindow.open(SQUID_PAGE_URL, '_blank');
-        squidTab?.addEventListener('load', () => initSquidPage());
+        // 移除load事件监听，因为跨标签页的load事件无法正常工作
+        // 脚本会在新标签页中通过initSquidPage()自动初始化
         return squidTab;
     }
 
     async function getGtokenByAccessKey(isExpiredPrompt = false) {
-        // 核心修改点1：先判断是否在目标域名下，不在则自动打开鱿鱼圈页面
+        // 修改：判断是否在目标域名下（包括子页面），不在则自动打开鱿鱼圈页面
         if (!TARGET_URL_REG.test(pageWindow.location.href)) {
             log('【操作提示】', '当前不在鱿鱼圈页面，将自动打开鱿鱼圈新标签页');
             openSquidPage();
+            // 打开新标签页后直接返回，避免在当前页面继续执行
+            return;
         }
 
         const promptMsg = isExpiredPrompt
